@@ -798,39 +798,41 @@ func (db *DB) getBatch(keys [][]byte, done []bool) ([]y.ValueStruct, error) {
 }
 
 func (db *DB) get(key []byte) (y.ValueStruct, error) {
-	done := make([]bool, 1)
-	vals, err := db.getBatch([][]byte{key}, done)
-	if len(vals) != 0 {
-		return vals[0], err
+	if db.opt.useGetBatch {
+		done := make([]bool, 1)
+		vals, err := db.getBatch([][]byte{key}, done)
+		if len(vals) != 0 {
+			return vals[0], err
+		}
+		return y.ValueStruct{}, err
 	}
-	return y.ValueStruct{}, err
 
-	//if db.IsClosed() {
-	//	return y.ValueStruct{}, ErrDBClosed
-	//}
-	//tables, decr := db.getMemTables() // Lock should be released.
-	//defer decr()
+	if db.IsClosed() {
+		return y.ValueStruct{}, ErrDBClosed
+	}
+	tables, decr := db.getMemTables() // Lock should be released.
+	defer decr()
 
-	//var maxVs y.ValueStruct
-	//version := y.ParseTs(key)
+	var maxVs y.ValueStruct
+	version := y.ParseTs(key)
 
-	//y.NumGetsAdd(db.opt.MetricsEnabled, 1)
-	//for i := 0; i < len(tables); i++ {
-	//	vs := tables[i].sl.Get(key)
-	//	y.NumMemtableGetsAdd(db.opt.MetricsEnabled, 1)
-	//	if vs.Meta == 0 && vs.Value == nil {
-	//		continue
-	//	}
-	//	// Found the required version of the key, return immediately.
-	//	if vs.Version == version {
-	//		y.NumGetsWithResultsAdd(db.opt.MetricsEnabled, 1)
-	//		return vs, nil
-	//	}
-	//	if maxVs.Version < vs.Version {
-	//		maxVs = vs
-	//	}
-	//}
-	//return db.lc.get(key, maxVs, 0)
+	y.NumGetsAdd(db.opt.MetricsEnabled, 1)
+	for i := 0; i < len(tables); i++ {
+		vs := tables[i].sl.Get(key)
+		y.NumMemtableGetsAdd(db.opt.MetricsEnabled, 1)
+		if vs.Meta == 0 && vs.Value == nil {
+			continue
+		}
+		// Found the required version of the key, return immediately.
+		if vs.Version == version {
+			y.NumGetsWithResultsAdd(db.opt.MetricsEnabled, 1)
+			return vs, nil
+		}
+		if maxVs.Version < vs.Version {
+			maxVs = vs
+		}
+	}
+	return db.lc.get(key, maxVs, 0)
 }
 
 var requestPool = sync.Pool{
