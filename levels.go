@@ -1640,7 +1640,12 @@ func (s *levelsController) getBatch(keys [][]byte, maxVs []y.ValueStruct, startL
 				maxVs[i] = v
 			}
 		}
+	}
 
+	for i := 0; i < len(maxVs); i++ {
+		if len(maxVs[i].Value) > 0 {
+			y.NumGetsWithResultsAdd(s.kv.opt.MetricsEnabled, 1)
+		}
 	}
 	return maxVs, nil
 }
