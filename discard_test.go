@@ -74,6 +74,7 @@ func bytesLessThan(a, b []byte) bool {
 }
 
 func TestReadC(t *testing.T) {
+	t.Skip()
 	allKeysF, err := os.Open("/home/harshil/all_keys_2")
 	require.NoError(t, err)
 	defer allKeysF.Close()
